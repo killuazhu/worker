@@ -76,7 +76,7 @@ jobs:
     - make docker-build
     - make smoke-docker
     - make docker-push
-    - make send-docker-hub-trigger
+    # - make send-docker-hub-trigger
     addons:
       apt:
         update: true
