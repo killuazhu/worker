@@ -2,12 +2,12 @@ package backend
 
 import (
 	"archive/tar"
-	"exec"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
