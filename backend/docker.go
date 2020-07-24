@@ -45,7 +45,7 @@ var (
 	defaultDockerNumCPUer       dockerNumCPUer = &stdlibNumCPUer{}
 	defaultDockerSSHDialTimeout                = 5 * time.Second
 	defaultInspectInterval                     = 500 * time.Millisecond
-	defaultExecCmd                             = "bash /home/travis/build.sh"
+	defaultExecCmd                             = "bash /home/travis/job-script/build.sh"
 	defaultTmpfsMap                            = map[string]string{"/run": "rw,nosuid,nodev,exec,noatime,size=65536k"}
 	dockerHelp                                 = map[string]string{
 		"ENDPOINT / HOST":     "[REQUIRED] tcp or unix address for connecting to Docker",
@@ -640,7 +640,7 @@ func (i *dockerInstance) uploadScriptNative(ctx gocontext.Context, script []byte
 	logger := context.LoggerFromContext(ctx).WithField("self", "backend/docker_provider")
 
 	// hack to write script into docker container
-	cmd := exec.Command("docker", "exec", "-i", i.container.ID, "/bin/sh", "-c", "cat > /home/travis/build.sh")
+	cmd := exec.Command("docker", "exec", "-u", "travis", "-i", i.container.ID, "/bin/sh", "-c", "mkdir -p /home/travis/job-script && cat > /home/travis/job-script/build.sh")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return err
