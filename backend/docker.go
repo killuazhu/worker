@@ -2,7 +2,7 @@ package backend
 
 import (
 	"archive/tar"
-	"bytes"
+	"exec"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -45,7 +45,7 @@ var (
 	defaultDockerNumCPUer       dockerNumCPUer = &stdlibNumCPUer{}
 	defaultDockerSSHDialTimeout                = 5 * time.Second
 	defaultInspectInterval                     = 500 * time.Millisecond
-	defaultExecCmd                             = "bash /home/travis/job-script/build.sh"
+	defaultExecCmd                             = "bash /home/travis/build.sh"
 	defaultTmpfsMap                            = map[string]string{"/run": "rw,nosuid,nodev,exec,noatime,size=65536k"}
 	dockerHelp                                 = map[string]string{
 		"ENDPOINT / HOST":     "[REQUIRED] tcp or unix address for connecting to Docker",
@@ -637,27 +637,28 @@ func (i *dockerInstance) UploadScript(ctx gocontext.Context, script []byte) erro
 }
 
 func (i *dockerInstance) uploadScriptNative(ctx gocontext.Context, script []byte) error {
-	tarBuf := &bytes.Buffer{}
-	tw := tar.NewWriter(tarBuf)
-	err := tw.WriteHeader(&tar.Header{
-		Name: "/home/travis/job-script/build.sh",
-		Mode: 0755,
-		Size: int64(len(script)),
-	})
-	if err != nil {
-		return err
-	}
-	_, err = tw.Write(script)
-	if err != nil {
-		return err
-	}
-	err = tw.Close()
+	logger := context.LoggerFromContext(ctx).WithField("self", "backend/docker_provider")
+
+	// hack to write script into docker container
+	cmd := exec.Command("docker", "exec", "-i", i.container.ID, "/bin/sh", "-c", "cat > /home/travis/build.sh")
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return err
 	}
 
-	return i.client.CopyToContainer(ctx, i.container.ID, "/",
-		bytes.NewReader(tarBuf.Bytes()), dockertypes.CopyToContainerOptions{})
+	go func() {
+		defer stdin.Close()
+		if _, err := stdin.Write(script); err != nil {
+			logger.WithField("err", err).Error("couldn't write script")
+		}
+	}()
+
+	_, err = cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *dockerInstance) uploadScriptSCP(ctx gocontext.Context, script []byte) error {
